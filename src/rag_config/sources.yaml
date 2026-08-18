@@ -1,0 +1,61 @@
+sources:
+  ecb_press:
+    type: rss
+    source_system: web_rss
+    url: https://www.ecb.europa.eu/rss/press.html
+    doc_type: press_release
+    default_language: en
+    detect_deletions: false   # rolling-window feed (~15 newest items)
+
+  ecb_statpress:
+    type: rss
+    source_system: web_rss
+    url: https://www.ecb.europa.eu/rss/statpress.html
+    doc_type: statistical_press_release
+    default_language: en
+    detect_deletions: false   # rolling-window feed (~15 newest items)
+  
+  bafin_announcements:
+    type: rss
+    source_system: web_rss
+    url: https://www.bafin.de/DE/service/rss/_function/rssnewsfeed.xml?nn=150166
+    doc_type: announcement
+    default_language: de
+    detect_deletions: false
+  
+  bafin_press:
+    type: rss
+    source_system: web_rss
+    url: https://www.bafin.de/DE/service/rss/_function/RSS_Presse.xml?nn=150166
+    doc_type: press_release
+    default_language: de
+    detect_deletions: false
+  
+  bafin_circular:
+    type: rss
+    source_system: web_rss
+    url: https://www.bafin.de/DE/service/rss/_function/RSS_Rundschreiben.xml?nn=150166
+    doc_type: circular
+    default_language: de
+    detect_deletions: false
+
+  local_pdfs:
+    type: local_files
+    source_system: local_files
+    path: ./data             # scanned relative to the process CWD (a stage dir)
+    glob: "**/*.pdf"
+    default_language: de
+    detect_deletions: true    # full directory scan = complete snapshot, so absence is a real deletion
+
+  confluence_quant:
+    type: confluence
+    source_system: confluence
+    base_url: https://get-capital.atlassian.net
+    space_key: QUA
+    label: RAG
+    include_attachments: false   # attachments deferred to a later iteration
+                                 # (ARCHITECTURE.md block 1); pages only for now
+    doc_type: wiki_page
+    default_language: en
+    detect_deletions: true    # space+label listing is a complete snapshot, so a
+                              # page that is deleted or unlabelled is really gone
