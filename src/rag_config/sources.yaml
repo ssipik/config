@@ -59,3 +59,5 @@ sources:
     default_language: en
     detect_deletions: true    # space+label listing is a complete snapshot, so a
                               # page that is deleted or unlabelled is really gone
+
+# for testing
