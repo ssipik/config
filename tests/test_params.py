@@ -4,12 +4,16 @@ from dataclasses import fields, replace
 
 import pytest
 
-from rag_config import EmbedParams, Params, load_params, params_path
-from rag_config.params import (
-    INGEST_FINGERPRINT_SECTIONS,
-    _load,
-    ingest_fingerprint,
+from rag_config import (
+    EmbedParams,
+    Params,
+    Settings,
+    load_params,
+    load_settings,
+    params_path,
+    settings_path,
 )
+from rag_config.params import INGEST_FINGERPRINT_SECTIONS, ingest_fingerprint
 
 
 def test_packaged_yaml_matches_the_code_defaults():
@@ -18,7 +22,8 @@ def test_packaged_yaml_matches_the_code_defaults():
     If these diverge, a stage running without the file behaves differently from
     one running with it — the failure this precedence order exists to avoid.
     """
-    assert _load(params_path()) == Params()
+    assert load_params(params_path()) == Params()
+    assert load_settings(settings_path()) == Settings()
 
 
 def test_packaged_yaml_is_versioned():
@@ -87,8 +92,6 @@ def test_query_time_knobs_keep_the_fingerprint():
         replace(p, agent=replace(p.agent, top_k=99)),
         replace(p, agent=replace(p.agent, rrf_dense_weight=0.5)),
         replace(p, agent=replace(p.agent, rerank_top_n=1)),
-        replace(p, plan=replace(p.plan, batch_max_docs=5)),
-        replace(p, finalize=replace(p.finalize, max_parse_error_rate=0.9)),
     ):
         assert ingest_fingerprint(changed) == ingest_fingerprint(p)
 
@@ -107,15 +110,16 @@ def test_reindexing_knobs_change_the_fingerprint():
         assert ingest_fingerprint(changed) != ingest_fingerprint(p)
 
 
-def test_excluded_embed_fields_keep_the_fingerprint():
-    """batch_size is throughput only; qdrant_collection is the name being derived."""
-    p = load_params()
-    assert ingest_fingerprint(replace(p, embed=replace(p.embed, batch_size=64))) == (
-        ingest_fingerprint(p)
-    )
-    assert ingest_fingerprint(
-        replace(p, embed=replace(p.embed, qdrant_collection="rag_chunks_abc123"))
-    ) == ingest_fingerprint(p)
+def test_config_cannot_reach_the_fingerprint():
+    """The two fields that used to need an exception are now out by construction.
+
+    embed_batch_size is throughput only and qdrant_collection is the name being
+    derived; both are Settings now, and ingest_fingerprint only ever sees Params.
+    """
+    assert not {f.name for f in fields(Settings)} & {
+        f.name for f in fields(EmbedParams)
+    }
+    assert "params" in ingest_fingerprint.__code__.co_varnames
 
 
 def test_fingerprint_is_stable_across_key_order():
@@ -129,8 +133,51 @@ def test_fingerprint_is_stable_across_key_order():
 def test_every_section_is_classified():
     """A new params section must be a deliberate in-or-out decision, not a default."""
     sections = {f.name for f in fields(Params)} - {"version"}
-    unclassified = sections - set(INGEST_FINGERPRINT_SECTIONS) - {"plan", "finalize", "agent"}
+    unclassified = sections - set(INGEST_FINGERPRINT_SECTIONS) - {"agent"}
     assert not unclassified, (
         f"new parameter section(s) {sorted(unclassified)}: decide whether changing them "
         "invalidates the Qdrant collection, then add to INGEST_FINGERPRINT_SECTIONS or here"
     )
+
+
+def test_the_shipped_fingerprint_has_not_moved():
+    """Collection names and evaluation/runs/<fingerprint>/ directories are keyed
+    on this. Moving it orphans every index and every recorded sweep."""
+    assert ingest_fingerprint() == "9b8010"
+
+
+def test_params_and_settings_share_no_field_name():
+    """The whole point of the split: one value, one home, one name."""
+    param_names = {
+        f.name
+        for section in ("parse_chunk", "embed", "agent")
+        for f in fields(type(getattr(load_params(), section)))
+    }
+    assert not param_names & {f.name for f in fields(Settings)}
+
+
+def test_settings_are_read_from_their_own_file(tmp_path, monkeypatch):
+    written = tmp_path / "s.yaml"
+    written.write_text("qdrant_collection: rag_chunks_test\n")
+    monkeypatch.setenv("RAG_SETTINGS_PATH", str(written))
+    assert load_settings().qdrant_collection == "rag_chunks_test"
+    assert load_settings().http_timeout == Settings().http_timeout
+    # Pointing one file somewhere else must not move the other.
+    assert load_params() == Params()
+
+
+def test_an_unknown_settings_key_is_loud(tmp_path, monkeypatch):
+    written = tmp_path / "s.yaml"
+    written.write_text("qdrant_colection: typo\n")
+    monkeypatch.setenv("RAG_SETTINGS_PATH", str(written))
+    with pytest.raises(ValueError, match="unknown parameter"):
+        load_settings()
+
+
+def test_a_settings_key_in_parameters_yaml_is_loud(tmp_path, monkeypatch):
+    """The two files are not interchangeable; putting one in the other says so."""
+    written = tmp_path / "p.yaml"
+    written.write_text("settings:\n  qdrant_collection: rag_chunks\n")
+    monkeypatch.setenv("RAG_PARAMETERS_PATH", str(written))
+    with pytest.raises(ValueError, match="unknown section"):
+        load_params()

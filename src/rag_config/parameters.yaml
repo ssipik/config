@@ -1,24 +1,24 @@
-# Pipeline tuning parameters — the single set every stage reads.
+# The model parameters every stage reads.
 #
 # Generated territory: the evaluation module emits an optimized set and it is
 # blessed into this package under a new `version`. Values only, by design — the
 # reasoning behind each default lives in params.py, where regenerating this file
 # cannot destroy it.
 #
+# Model parameters only: chunking, embedding, retrieval, the LLM. Changing one
+# changes what the pipeline retrieves or answers, so these are what a sweep
+# varies and what a score belongs to. The config variables live next door in
+# settings.yaml, and nothing appears in both.
+#
 # `rerun:` says what changing an entry costs, which is what an optimizer needs
 # to know to plan a sweep. Anything absent here falls back to the dataclass
 # defaults in params.py; any environment variable still overrides both.
 #
-# Deployment values (DSNs, service URLs, credentials) are deliberately not here:
-# this file is committed and those differ per environment.
+# Credentials (DSNs, API tokens, keys) are deliberately not here: this file is
+# committed and packaged. Nor is user_agent, which identifies a component
+# rather than being shared.
 
 version: v0-baseline
-
-plan:
-  batch_target_cost: 15000000     # rerun: stage 3
-  batch_max_docs: 200             # rerun: stage 3
-  default_doc_cost: 150000        # rerun: stage 3
-  default_cost_weight: 1.0        # rerun: stage 3
 
 parse_chunk:
   chunk_size: 700                 # rerun: stages 4-5, words not tokens
@@ -26,17 +26,12 @@ parse_chunk:
   low_text_chars_per_page: 200    # rerun: stages 4-5
 
 embed:
-  batch_size: 32                  # rerun: none, throughput only
-  qdrant_collection: rag_chunks   # rerun: stages 4-5 + agent redeploy
   dense_vector: dense_bge_m3      # rerun: stages 4-5 + agent redeploy
   sparse_vectors:                 # rerun: stages 4-5 + agent redeploy
     sparse_bm25_de: german
     sparse_bm25_en: english
   sparse_model_id: Qdrant/bm25    # rerun: stages 4-5 + agent redeploy
   sparse_avg_len: 256.0           # rerun: stages 4-5 + agent redeploy
-
-finalize:
-  max_parse_error_rate: 0.2       # rerun: stage 6
 
 agent:
   prefetch_limit: 30              # rerun: none

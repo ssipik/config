@@ -1,0 +1,26 @@
+# Config variables — the shared services, and what the stages must agree on.
+#
+# Config, not model: changing one of these changes throughput or operations,
+# never an answer. The model parameters are next door in parameters.yaml, and
+# nothing appears in both. The reasoning behind each default lives in params.py,
+# beside the dataclass.
+#
+# Credentials are deliberately absent: DSNs, API tokens and keys stay
+# environment variables, because this file is committed and packaged. So is
+# user_agent, which identifies a component rather than being shared.
+#
+# Any RAG_* variable still overrides an entry here for a single run.
+
+qdrant_url: http://localhost:6333       # rerun: none
+tei_url: http://localhost:8080          # rerun: none
+tei_rerank_url: http://localhost:8081   # rerun: none
+http_timeout: 30.0              # rerun: none
+tei_timeout: 300.0              # rerun: none
+rerank_timeout: 600.0           # rerun: none
+qdrant_collection: rag_chunks   # rerun: stages 4-5 + agent redeploy
+embed_batch_size: 32            # rerun: none, throughput only
+batch_target_cost: 15000000     # rerun: stage 3
+batch_max_docs: 200             # rerun: stage 3
+default_doc_cost: 150000        # rerun: stage 3
+default_cost_weight: 1.0        # rerun: stage 3
+max_parse_error_rate: 0.2       # rerun: stage 6
