@@ -42,6 +42,7 @@ agent:
   prefetch_limit: 30              # rerun: none
   top_k: 30                       # rerun: none
   rerank_top_n: 5                 # rerun: none
+  rerank_enabled: false           # rerun: none
   rrf_k: 2                        # rerun: none
   rrf_dense_weight: 1.0           # rerun: none
   rrf_sparse_weight: 0.3333333333333333   # rerun: none

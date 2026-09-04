@@ -17,8 +17,10 @@ stay environment variables.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
-from dataclasses import dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -28,12 +30,15 @@ import yaml
 from rag_config.resources import resource_path
 
 __all__ = [
+    "INGEST_FINGERPRINT_EXCLUDE",
+    "INGEST_FINGERPRINT_SECTIONS",
     "Params",
     "PlanParams",
     "ParseChunkParams",
     "EmbedParams",
     "FinalizeParams",
     "AgentParams",
+    "ingest_fingerprint",
     "load_params",
     "params_path",
 ]
@@ -147,6 +152,11 @@ class AgentParams:
     # analyzer per query enough).
     rrf_dense_weight: float = 1.0
     rrf_sparse_weight: float = 1 / 3
+    # Off until the evaluation says it earns its second container. It lives here
+    # rather than only in RAG_RERANK_ENABLED so a tuned value has a home in the
+    # file like every other knob; on this box the reranker falls back to Candle
+    # and costs minutes per query (../tei_rerank/README.md).
+    rerank_enabled: bool = False
     # Cutting a search excerpt short, off by default. The prompt is already
     # bounded by rerank_top_n x stage 4's chunk_size (5 x 700 words, ~6k tokens
     # worst case on this corpus), so a second cap is not needed to protect the
@@ -241,3 +251,50 @@ def load_params(path: str | Path | None = None) -> Params:
     if not resolved.is_file():
         return Params()
     return _load_cached(resolved)
+
+
+# --- which parameters own the shape of the index ---------------------------
+#
+# Changing one of these invalidates the vectors already in Qdrant, so a sweep
+# has to build a separate collection for it; changing anything else is a
+# query-time knob that reuses the collection it already has. The split is the
+# one the dataclass docstrings already state: stage 4 "needs stages 4-5 re-run",
+# stage 5 "invalidates the vectors already in Qdrant", agent "needs no
+# re-ingest".
+#
+# Whole sections are included and exceptions are named, rather than the other
+# way round, because the two mistakes do not cost the same: a parameter wrongly
+# included buys an unnecessary re-ingest and is obvious, while one wrongly left
+# out silently scores the previous index. So a parameter added later is covered
+# without anyone remembering to add it here.
+INGEST_FINGERPRINT_SECTIONS = ("parse_chunk", "embed")
+INGEST_FINGERPRINT_EXCLUDE = frozenset(
+    {
+        # Chunks per TEI request: throughput only, same vectors either way.
+        "embed.batch_size",
+        # The name being derived — it cannot take part in its own hash.
+        "embed.qdrant_collection",
+    }
+)
+
+
+def ingest_fingerprint(params: Params | None = None, length: int = 6) -> str:
+    """Short hash of the parameters that decide what is stored in Qdrant.
+
+    Names one collection per ingest configuration, so an evaluation sweep over
+    query-time knobs reuses the index it already built and only a re-chunk or
+    re-embed pays for a new one.
+    """
+    params = params or load_params()
+    payload: dict[str, Any] = {}
+    for section in INGEST_FINGERPRINT_SECTIONS:
+        for key, value in asdict(getattr(params, section)).items():
+            name = f"{section}.{key}"
+            if name not in INGEST_FINGERPRINT_EXCLUDE:
+                payload[name] = value
+    # sort_keys so the hash follows the values and not the key order they
+    # happened to be written in.
+    digest = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, default=str).encode()
+    ).hexdigest()
+    return digest[:length]

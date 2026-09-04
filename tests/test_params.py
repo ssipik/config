@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+from dataclasses import fields, replace
+
 import pytest
 
 from rag_config import EmbedParams, Params, load_params, params_path
-from rag_config.params import _load
+from rag_config.params import (
+    INGEST_FINGERPRINT_SECTIONS,
+    _load,
+    ingest_fingerprint,
+)
 
 
 def test_packaged_yaml_matches_the_code_defaults():
@@ -69,3 +75,62 @@ def test_embed_params_defaults_are_not_shared_between_instances():
     a, b = EmbedParams(), EmbedParams()
     assert a.sparse_vectors == b.sparse_vectors
     assert a.sparse_vectors is not b.sparse_vectors
+
+
+# --- ingest fingerprint ----------------------------------------------------
+
+
+def test_query_time_knobs_keep_the_fingerprint():
+    """A sweep over retrieval shape must reuse the collection it already built."""
+    p = load_params()
+    for changed in (
+        replace(p, agent=replace(p.agent, top_k=99)),
+        replace(p, agent=replace(p.agent, rrf_dense_weight=0.5)),
+        replace(p, agent=replace(p.agent, rerank_top_n=1)),
+        replace(p, plan=replace(p.plan, batch_max_docs=5)),
+        replace(p, finalize=replace(p.finalize, max_parse_error_rate=0.9)),
+    ):
+        assert ingest_fingerprint(changed) == ingest_fingerprint(p)
+
+
+def test_reindexing_knobs_change_the_fingerprint():
+    """Anything that changes what is stored has to get its own collection."""
+    p = load_params()
+    for changed in (
+        replace(p, parse_chunk=replace(p.parse_chunk, chunk_size=384)),
+        replace(p, parse_chunk=replace(p.parse_chunk, chunk_overlap=0)),
+        replace(p, embed=replace(p.embed, dense_vector="dense_e5")),
+        replace(p, embed=replace(p.embed, sparse_model_id="other/bm25")),
+        replace(p, embed=replace(p.embed, sparse_avg_len=128.0)),
+        replace(p, embed=replace(p.embed, sparse_vectors={"sparse_bm25_en": "english"})),
+    ):
+        assert ingest_fingerprint(changed) != ingest_fingerprint(p)
+
+
+def test_excluded_embed_fields_keep_the_fingerprint():
+    """batch_size is throughput only; qdrant_collection is the name being derived."""
+    p = load_params()
+    assert ingest_fingerprint(replace(p, embed=replace(p.embed, batch_size=64))) == (
+        ingest_fingerprint(p)
+    )
+    assert ingest_fingerprint(
+        replace(p, embed=replace(p.embed, qdrant_collection="rag_chunks_abc123"))
+    ) == ingest_fingerprint(p)
+
+
+def test_fingerprint_is_stable_across_key_order():
+    """The hash follows the values, not the order they were written in."""
+    a = EmbedParams(sparse_vectors={"sparse_bm25_de": "german", "sparse_bm25_en": "english"})
+    b = EmbedParams(sparse_vectors={"sparse_bm25_en": "english", "sparse_bm25_de": "german"})
+    p = load_params()
+    assert ingest_fingerprint(replace(p, embed=a)) == ingest_fingerprint(replace(p, embed=b))
+
+
+def test_every_section_is_classified():
+    """A new params section must be a deliberate in-or-out decision, not a default."""
+    sections = {f.name for f in fields(Params)} - {"version"}
+    unclassified = sections - set(INGEST_FINGERPRINT_SECTIONS) - {"plan", "finalize", "agent"}
+    assert not unclassified, (
+        f"new parameter section(s) {sorted(unclassified)}: decide whether changing them "
+        "invalidates the Qdrant collection, then add to INGEST_FINGERPRINT_SECTIONS or here"
+    )
