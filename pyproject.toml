@@ -12,6 +12,17 @@ dependencies = [
 dev = [
     "pytest>=8.0",
 ]
+# `python -m rag_config promote` reads a parameter set out of the MLflow model
+# registry. An extra, not a dependency: every stage installs this package and
+# none of them talk to MLflow, so the base install must stay as small as it is.
+# skinny, not full mlflow — a client, no tracking server or model serving; the
+# same pin the agent uses, and enough for a registry read.
+promote = [
+    "mlflow-skinny>=3.11",
+    # MLFLOW_TRACKING_URI lives in this repo's .env, the way it does for the
+    # agent and the evaluation module.
+    "python-dotenv>=1.0",
+]
 
 [build-system]
 requires = ["hatchling"]

@@ -26,6 +26,15 @@ from rag_config.params import (
     set_param,
     settings_path,
 )
+from rag_config.promote import (
+    PromoteError,
+    Rewrite,
+    cast_section,
+    plan,
+    rewrite,
+    run_promote,
+    section_values,
+)
 from rag_config.sources import SourceConfig, load_sources, sources_path
 
 __all__ = [
@@ -35,13 +44,20 @@ __all__ = [
     "EmbedParams",
     "Params",
     "ParseChunkParams",
+    "PromoteError",
+    "Rewrite",
     "Settings",
     "SourceConfig",
+    "cast_section",
     "ingest_fingerprint",
     "load_params",
     "load_settings",
     "load_sources",
     "params_path",
+    "plan",
+    "rewrite",
+    "run_promote",
+    "section_values",
     "set_param",
     "settings_path",
     "sources_path",

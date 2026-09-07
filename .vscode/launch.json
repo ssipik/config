@@ -1,0 +1,56 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        
+        // needs the optional extra: uv sync --frozen --extra dev --extra promote
+        {
+            "name": "rag_config - promote",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "rag_config",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "args": [
+                "promote",
+                "--mlflow-model", "rag-retrieval-params@optimal_rrf_sparse_weight",
+                "--dry-run",
+                // --out defaults to the checked-out parameters.yaml
+                // "--set-version", "v1-tuned",
+            ],
+        },
+        {
+            "name": "rag_config - promote tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "python": "${workspaceFolder}/.venv/bin/python",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "tests/test_promote.py", "tests/test_baseline.py",
+                "-v",
+                // "-k", "shipped_file",
+            ],
+        },
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "--base-url", "https://get-capital.atlassian.net",
+                "--root-page-id", "1037991938",
+                "--label", "RAG",
+                "--apply",
+                // "--skip-root",
+                // "--remove",
+            ]
+        }
+    ]
+}
