@@ -19,6 +19,12 @@ tei_timeout: 300.0              # rerun: none
 rerank_timeout: 600.0           # rerun: none
 qdrant_collection: rag_chunks   # rerun: stages 4-5 + agent redeploy
 embed_batch_size: 32            # rerun: none, throughput only
+
+# name ids of vectors in Qdrant
+dense_vector: dense_bge_m3      # rerun: stages 4-5 + agent redeploy
+sparse_vectors:                 # rerun: stages 4-5 + agent redeploy
+  german: sparse_bm25_de
+  english: sparse_bm25_en
 batch_target_cost: 15000000     # rerun: stage 3
 batch_max_docs: 200             # rerun: stage 3
 default_doc_cost: 150000        # rerun: stage 3

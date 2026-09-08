@@ -26,11 +26,14 @@ parse_chunk:
   low_text_chars_per_page: 200    # rerun: stages 4-5
 
 embed:
-  dense_vector: dense_bge_m3      # rerun: stages 4-5 + agent redeploy
-  sparse_vectors:                 # rerun: stages 4-5 + agent redeploy
-    sparse_bm25_de: german
-    sparse_bm25_en: english
-  sparse_model_id: Qdrant/bm25    # rerun: stages 4-5 + agent redeploy
+  dense_model: BAAI/bge-m3        # rerun: stages 4-5 + agent redeploy
+  # analyzer language -> the sparse model embedding that leg. The Qdrant field
+  # each is stored under is config, in settings.yaml, keyed by the same language.
+  # These names are fastembed's own (SparseTextEmbedding validates them), unlike
+  # dense_model and agent.rerank_model, which only record what a container serves.
+  sparse_models:                  # rerun: stages 4-5 + agent redeploy
+    german: Qdrant/bm25
+    english: Qdrant/bm25
   sparse_avg_len: 256.0           # rerun: stages 4-5 + agent redeploy
 
 agent:
@@ -38,6 +41,7 @@ agent:
   top_k: 30                       # rerun: none
   rerank_top_n: 5                 # rerun: none
   rerank_enabled: false           # rerun: none
+  rerank_model: BAAI/bge-reranker-v2-m3   # rerun: none, agent redeploy
   rrf_k: 2                        # rerun: none
   rrf_dense_weight: 1.0           # rerun: none
   rrf_sparse_weight: 0.3333333333333333   # rerun: none

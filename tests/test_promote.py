@@ -37,10 +37,9 @@ parse_chunk:
   chunk_overlap: 100              # rerun: stages 4-5
 
 embed:
-  dense_vector: dense_bge_m3      # rerun: stages 4-5 + agent redeploy
-  sparse_vectors:                 # rerun: stages 4-5 + agent redeploy
-    sparse_bm25_de: german
-    sparse_bm25_en: english
+  sparse_models:                  # rerun: stages 4-5 + agent redeploy
+    german: Qdrant/bm25
+    english: Qdrant/bm25
   sparse_avg_len: 256.0           # rerun: stages 4-5 + agent redeploy
 
 agent:
@@ -88,8 +87,8 @@ class TestCasting:
         }
 
     def test_a_mapping_survives_the_repr_it_was_stored_as(self):
-        assert cast_section("embed", {"sparse_vectors": "{'sparse_bm25_de': 'german'}"}) == {
-            "sparse_vectors": {"sparse_bm25_de": "german"}
+        assert cast_section("embed", {"sparse_models": "{'german': 'Qdrant/bm25'}"}) == {
+            "sparse_models": {"german": "Qdrant/bm25"}
         }
 
     def test_what_is_not_a_knob_is_dropped(self):
@@ -126,11 +125,11 @@ class TestRewrite:
 
     def test_a_nested_mapping_is_replaced_whole(self):
         new, changes = rewrite(
-            FILE, {"embed": {"sparse_vectors": {"sparse_bm25_fr": "french"}}}
+            FILE, {"embed": {"sparse_models": {"french": "Qdrant/bm25"}}}
         )
-        assert loaded(new).embed.sparse_vectors == {"sparse_bm25_fr": "french"}
+        assert loaded(new).embed.sparse_models == {"french": "Qdrant/bm25"}
         # the key line keeps its comment, and the key after the block is intact
-        assert "  sparse_vectors:                 # rerun:" in new
+        assert "  sparse_models:                  # rerun:" in new
         assert loaded(new).embed.sparse_avg_len == 256.0
         assert changes
 

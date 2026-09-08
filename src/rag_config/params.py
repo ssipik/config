@@ -53,12 +53,14 @@ __all__ = [
     "Params",
     "ParseChunkParams",
     "Settings",
+    "SparseLeg",
     "ingest_fingerprint",
     "load_params",
     "load_settings",
     "set_param",
     "params_path",
     "settings_path",
+    "sparse_legs",
 ]
 
 
@@ -80,52 +82,57 @@ class ParseChunkParams:
 
 @dataclass(frozen=True)
 class EmbedParams:
-    """Stage 5, and the half of it the agent must match.
+    """Stage 5's model half, and the part of it the agent must match.
 
-    All four are read by both stage 5 and the agent. They used to be duplicated
-    constants in embed/qdrant.py and agent/qdrant.py; one definition here is the
-    point of this package. Changing any of them invalidates the vectors already
-    in Qdrant, so it is a re-embed, not a knob.
+    Model only: what the sparse legs are and how they embed. The Qdrant field
+    names those vectors are *stored under* are config and live in ``Settings`` —
+    renaming a field moves a vector, it does not change one, which is the same
+    reason ``qdrant_collection`` and ``embed_batch_size`` sit there. The two
+    halves are joined by ``sparse_legs()``.
 
-    The collection name and the request batch size used to live here too. They
-    are config, not model — they name where vectors go and how many travel per
-    request, without changing a single vector — so they moved to ``Settings``.
+    Changing anything here invalidates the vectors already in Qdrant, so it is a
+    re-embed, not a knob.
     """
 
-    # Named-vector ids — model-specific so a second model can be added without
-    # ambiguity (e.g. dense_e5, sparse_splade).
-    dense_vector: str = "dense_bge_m3"
-    # Sparse field -> BM25 analyzer language. Every chunk gets both, whatever
-    # language it is in: the analyzer defines the sparse id space, so picking one
-    # per document would make matching depend on an ingest-time language guess.
-    # Each field keeps its own document-frequency stats, hence its own IDF.
-    sparse_vectors: dict[str, str] = field(
+    # What TEI must be serving on ``tei_url``. Declarative, unlike sparse_models
+    # above, which fastembed actually resolves: TEI is told its model
+    # at container start (../tei/docker-compose.yml) and this stage cannot
+    # choose it per request, so nothing sends this value anywhere. It is here to
+    # be *hashed* — without it a TEI model swap produces different vectors in the
+    # same collection and every score before it silently becomes incomparable.
+    # Known gap: nothing verifies TEI is actually serving this. Stage 5 could
+    # check it against TEI's /info at startup; it does not yet.
+    dense_model: str = "BAAI/bge-m3"
+
+    # Analyzer language -> the sparse model that embeds that leg.
+    #
+    # Unlike dense_model and agent.rerank_model below, these values are *sent*:
+    # they go straight into fastembed's SparseTextEmbedding(model_name=...),
+    # which validates them against list_supported_models(). So the spelling is
+    # fastembed's, not ours — `Qdrant/bm25` is the HuggingFace repo publishing
+    # it, and anything else fails at the first embed call.
+    #
+    # Every chunk gets every leg, whatever language it is in: the analyzer
+    # defines the leg's sparse id space (fastembed derives stemmer and stopwords
+    # from the language), so picking one per document would make matching depend
+    # on an ingest-time language guess. Each leg keeps its own document-frequency
+    # stats, hence its own IDF.
+    #
+    # Per language rather than one model for all of them because they are
+    # expected to diverge: German needs decompounding ("Bankenaufsicht" ->
+    # "Banken" + "Aufsicht"), which the Snowball stemmer behind `Qdrant/bm25`
+    # does not do. When that lands it changes this one value.
+    sparse_models: dict[str, str] = field(
         default_factory=lambda: {
-            "sparse_bm25_de": "german",
-            "sparse_bm25_en": "english",
+            "german": "Qdrant/bm25",
+            "english": "Qdrant/bm25",
         }
     )
-    sparse_model_id: str = "Qdrant/bm25"
     # BM25's length-normalization reference in tokens. It only shapes the
     # document side, but the embedder takes it either way, so it is kept
     # identical on both sides rather than left to drift. The fastembed version
     # is the third part of this contract and is pinned in each pyproject.
     sparse_avg_len: float = 256.0
-
-    def sparse_vector_for(self, analyzer: str) -> str:
-        """The sparse field name using this BM25 analyzer.
-
-        Both stages name their German and English legs this way rather than by
-        position, so renaming a field in parameters.yaml cannot silently swap
-        which analyzer a leg queries.
-        """
-        for name, lang in self.sparse_vectors.items():
-            if lang == analyzer:
-                return name
-        raise KeyError(
-            f"no sparse vector uses the {analyzer!r} analyzer — "
-            f"have {sorted(self.sparse_vectors.values())}"
-        )
 
 
 @dataclass(frozen=True)
@@ -159,6 +166,11 @@ class AgentParams:
     # file like every other knob; on this box the reranker falls back to Candle
     # and costs minutes per query (../tei_rerank/README.md).
     rerank_enabled: bool = False
+    # What tei_rerank_url must be serving. Declarative for the same reason as
+    # embed.dense_model — one model per container, chosen at start — but *not*
+    # fingerprinted: reranking reorders what was already retrieved and touches
+    # no stored vector, so changing it is a redeploy, not a re-embed.
+    rerank_model: str = "BAAI/bge-reranker-v2-m3"
     # Cutting a search excerpt short, off by default. The prompt is already
     # bounded by rerank_top_n x stage 4's chunk_size (5 x 700 words, ~6k tokens
     # worst case on this corpus), so a second cap is not needed to protect the
@@ -221,6 +233,24 @@ class Settings:
     qdrant_collection: str = "rag_chunks"
     # Chunks per TEI request: throughput only, same vectors either way.
     embed_batch_size: int = 32
+
+    # The Qdrant named-vector ids. Config, not model: a rename moves a vector
+    # rather than changing one, the same reason qdrant_collection is here — and
+    # it keeps them out of ingest_fingerprint by construction, where a rename
+    # would otherwise look like a re-embed.
+    #
+    # They are named per model so a second one can be added without ambiguity
+    # (dense_e5, sparse_splade), and stage 5 writes exactly these names while the
+    # agent queries them: a mismatch is an empty result, not an error.
+    dense_vector: str = "dense_bge_m3"
+    # Analyzer language -> its Qdrant field. The keys must be the same set as
+    # Params.embed.sparse_models, which is what sparse_legs() checks.
+    sparse_vectors: dict[str, str] = field(
+        default_factory=lambda: {
+            "german": "sparse_bm25_de",
+            "english": "sparse_bm25_en",
+        }
+    )
 
     # Stage 3's batching. Bytes of source per batch, and the ceiling on
     # documents in one batch.
@@ -331,6 +361,43 @@ def load_settings(path: str | Path | None = None) -> Settings:
     if not resolved.is_file():
         return Settings()
     return _build(Settings, _load_raw(resolved, None), str(resolved))
+
+
+@dataclass(frozen=True)
+class SparseLeg:
+    """One sparse retrieval leg: where it is stored, and what embeds it."""
+
+    language: str
+    vector: str
+    model: str
+
+
+def sparse_legs(
+    params: Params | None = None, settings: Settings | None = None
+) -> dict[str, SparseLeg]:
+    """The sparse legs, keyed by analyzer language.
+
+    The model is a parameter and the field name is config, so the two halves
+    live in different files. This is the one place they are put back together,
+    and so the only place a disagreement between them can be caught — which it
+    must be, because a leg whose field name is missing from Qdrant returns no
+    hits rather than an error.
+    """
+    params = params if params is not None else load_params()
+    settings = settings if settings is not None else load_settings()
+    models_, vectors = params.embed.sparse_models, settings.sparse_vectors
+    if set(models_) != set(vectors):
+        raise ValueError(
+            "sparse legs disagree between the two files — "
+            f"parameters.yaml embed.sparse_models has {sorted(models_)}, "
+            f"settings.yaml sparse_vectors has {sorted(vectors)}"
+        )
+    if not models_:
+        raise ValueError("no sparse legs configured — hybrid retrieval needs at least one")
+    return {
+        language: SparseLeg(language, vectors[language], model)
+        for language, model in models_.items()
+    }
 
 
 def set_param(params: Params, dotted: str, value: Any) -> Params:

@@ -19,12 +19,14 @@ from rag_config.params import (
     Params,
     ParseChunkParams,
     Settings,
+    SparseLeg,
     ingest_fingerprint,
     load_params,
     load_settings,
     params_path,
     set_param,
     settings_path,
+    sparse_legs,
 )
 from rag_config.promote import (
     PromoteError,
@@ -48,6 +50,7 @@ __all__ = [
     "Rewrite",
     "Settings",
     "SourceConfig",
+    "SparseLeg",
     "cast_section",
     "ingest_fingerprint",
     "load_params",
@@ -60,5 +63,6 @@ __all__ = [
     "section_values",
     "set_param",
     "settings_path",
+    "sparse_legs",
     "sources_path",
 ]

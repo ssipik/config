@@ -79,14 +79,43 @@ Deployment values (DSNs, service URLs, credentials, MLflow URIs) are
 deliberately absent: this file is committed, and those differ per environment.
 They stay environment variables.
 
-## The shared vector names
+## The sparse legs, split across both files
 
-`embed.dense_vector` and `embed.sparse_vectors` are read by both stage 5, which
-writes those named vectors into Qdrant, and the agent, which queries them. They
-were two copies of the same constants in `embed/qdrant.py` and
-`agent/qdrant.py`; a drift returned no hits rather than an error, which is the
-main reason this package exists. Changing them invalidates every vector already
-stored, so it is a re-embed, not a knob.
+A sparse retrieval leg has two halves, and they live in different files because
+they are different kinds of value:
+
+```yaml
+# parameters.yaml — what embeds it. Changing this re-embeds the corpus.
+embed:
+  sparse_models:
+    german: Qdrant/bm25
+    english: Qdrant/bm25
+
+# settings.yaml — where it is stored. Renaming this moves a vector; it does not
+# change one, so it stays out of ingest_fingerprint by construction.
+sparse_vectors:
+  german: sparse_bm25_de
+  english: sparse_bm25_en
+```
+
+Keyed by analyzer language on both sides, because the language is what defines a
+leg: fastembed derives the stemmer and stopwords from it, so it decides the
+leg's sparse id space. `sparse_legs()` joins the two and **refuses to run if the
+key sets disagree** — a leg whose Qdrant field is missing returns no hits rather
+than an error, which is the failure this package exists to prevent.
+
+The model is per language because they are expected to diverge: German needs
+decompounding ("Bankenaufsicht" → "Banken" + "Aufsicht"), which the Snowball
+stemmer behind `Qdrant/bm25` does not do. When that lands it is one value.
+
+`dense_vector` is in `settings.yaml` for the same reason as the sparse names.
+`embed.dense_model` and `agent.rerank_model` are in `parameters.yaml` and name
+what TEI and the reranker must be serving — declarative, since a TEI container
+is told its model at start and neither stage can choose per request. They exist
+to be recorded: the dense one is hashed, because a model swap would otherwise
+put different vectors in the same collection and silently make every earlier
+score incomparable; the reranker one is not, because reranking reorders what was
+already retrieved and stores nothing.
 
 ## Consuming it
 
