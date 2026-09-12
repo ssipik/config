@@ -47,6 +47,13 @@ def tracking_uri() -> str:
     return os.environ.get("MLFLOW_TRACKING_URI", "")
 
 
+# Prefix -> the one that section was logged under before it was renamed.
+# AgentParams was `run.*` until the evaluation module logged the effective
+# params rather than the file's, which is what `run.` used to distinguish.
+# Drop an entry once no registered version still carries the old name.
+LEGACY_PREFIX = {"agent.": "run."}
+
+
 @dataclass(frozen=True)
 class Baseline:
     """A registered model version, and the run it was registered from.
@@ -69,12 +76,19 @@ class Baseline:
         return self.params.get("ingest_fingerprint")
 
     def section(self, prefix: str) -> dict[str, str]:
-        """The params under one prefix, with the prefix removed."""
-        return {
+        """The params under one prefix, with the prefix removed.
+
+        A prefix that finds nothing falls back to the one that section used to
+        be logged under, so a baseline registered before the rename still
+        resolves — see LEGACY_PREFIX.
+        """
+        found = {
             key.removeprefix(prefix): value
             for key, value in self.params.items()
             if key.startswith(prefix)
         }
+        legacy = LEGACY_PREFIX.get(prefix)
+        return self.section(legacy) if not found and legacy else found
 
 
 def _configure() -> None:

@@ -180,6 +180,19 @@ class AgentParams:
     # whole. Turn it on only to compare prompt sizes.
     truncate_chunks: bool = False
     max_excerpt_chars: int = 1500
+
+    # fetch_document's two ceilings. Safeguards rather than tuning knobs — the
+    # tool reassembles a whole document from its chunks, and both bound what one
+    # tool call can put in front of the model. They live here because they shape
+    # the answer path like max_excerpt_chars does, and because a limit nobody can
+    # see in parameters.yaml is a limit nobody knows they hit.
+    #
+    # Characters of reassembled text kept. The tail is dropped.
+    fetch_max_chars: int = 200_000
+    # Chunks pulled from Qdrant for one document. At stage 4's chunk size this is
+    # far beyond any real document; it exists so a pathological one cannot pull
+    # an unbounded scroll.
+    fetch_max_chunks: int = 1024
     llm_model: str = "anthropic/claude-haiku-4.5"
     llm_temperature: float = 0.1  # regulatory answers: follow the sources, don't improvise
     llm_max_tokens: int = 2048
@@ -233,6 +246,12 @@ class Settings:
     qdrant_collection: str = "rag_chunks"
     # Chunks per TEI request: throughput only, same vectors either way.
     embed_batch_size: int = 32
+    # The reranker's equivalent. TEI refuses a client batch above its own
+    # --max-client-batch-size with a 422, so without chunking any top_k over 32
+    # fails the request outright instead of being slower. Safe to split: a
+    # cross-encoder scores each (query, passage) pair independently, so batching
+    # changes nothing about the ranking.
+    rerank_batch_size: int = 32
 
     # The Qdrant named-vector ids. Config, not model: a rename moves a vector
     # rather than changing one, the same reason qdrant_collection is here — and

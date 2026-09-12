@@ -54,10 +54,19 @@ class TestBaseline:
             version="7",
             run_id="x",
             summary="s",
-            params={"run.top_k": "12", "embed.sparse_avg_len": "256.0"},
+            params={"agent.top_k": "12", "embed.sparse_avg_len": "256.0"},
         )
-        assert baseline.section("run.") == {"top_k": "12"}
+        assert baseline.section("agent.") == {"top_k": "12"}
         assert baseline.section("embed.") == {"sparse_avg_len": "256.0"}
+
+    def test_the_old_prefix_is_read_when_the_new_one_finds_nothing(self):
+        # a baseline registered while AgentParams was logged as `run.*`
+        old = Baseline("m@a", "m", "7", "x", "s", {"run.top_k": "12"})
+        assert old.section("agent.") == {"top_k": "12"}
+
+    def test_the_old_prefix_is_ignored_once_the_new_one_is_there(self):
+        both = Baseline("m@a", "m", "7", "x", "s", {"agent.top_k": "12", "run.top_k": "9"})
+        assert both.section("agent.") == {"top_k": "12"}
 
     def test_the_fingerprint_is_absent_rather_than_wrong_when_unlogged(self):
         assert Baseline("m@a", "m", "7", "x", "s", {}).fingerprint is None

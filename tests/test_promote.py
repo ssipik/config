@@ -215,9 +215,12 @@ def _resolves_to(monkeypatch, result: Baseline) -> None:
 
 
 class TestSectionValues:
-    def test_the_agent_section_comes_from_the_run_prefix(self):
-        # an evaluation run logs AgentParams as `run.*`, not `agent.*`
-        assert SECTION_PREFIX["agent"] == "run."
+    def test_every_section_comes_from_its_own_name(self):
+        assert SECTION_PREFIX == {
+            "parse_chunk": "parse_chunk.",
+            "embed": "embed.",
+            "agent": "agent.",
+        }
 
     def test_the_three_sections_come_from_their_own_prefixes(self):
         values = section_values(
@@ -225,7 +228,7 @@ class TestSectionValues:
                 **{
                     "parse_chunk.chunk_size": "900",
                     "embed.sparse_avg_len": "300.0",
-                    "run.top_k": "12",
+                    "agent.top_k": "12",
                 }
             )
         )
@@ -235,8 +238,13 @@ class TestSectionValues:
 
     def test_what_the_run_records_but_cannot_be_set_is_dropped(self):
         values = section_values(
-            baseline(**{"run.top_k": "12", "ingest_fingerprint": "abc123"})
+            baseline(**{"agent.top_k": "12", "ingest_fingerprint": "abc123"})
         )
+        assert values["agent"] == {"top_k": 12}
+
+    def test_a_baseline_registered_before_the_rename_still_resolves(self):
+        # AgentParams was logged as `run.*` until it took its own section name
+        values = section_values(baseline(**{"run.top_k": "12"}))
         assert values["agent"] == {"top_k": 12}
 
     def test_a_run_the_evaluation_module_did_not_log_is_refused(self):
@@ -250,7 +258,7 @@ class TestRunPromote:
     ):
         target = tmp_path / "parameters.yaml"
         target.write_text(FILE, encoding="utf-8")
-        _resolves_to(monkeypatch, baseline(**{"run.top_k": "12"}))
+        _resolves_to(monkeypatch, baseline(**{"agent.top_k": "12"}))
 
         assert run_promote("m@champion", out=target) == 0
         written = load_params(target)
@@ -262,7 +270,7 @@ class TestRunPromote:
     def test_set_version_wins_over_the_registry_address(self, tmp_path, monkeypatch):
         target = tmp_path / "parameters.yaml"
         target.write_text(FILE, encoding="utf-8")
-        _resolves_to(monkeypatch, baseline(**{"run.top_k": "12"}))
+        _resolves_to(monkeypatch, baseline(**{"agent.top_k": "12"}))
 
         run_promote("m@champion", out=target, version="v2-tuned")
         assert load_params(target).version == "v2-tuned"
@@ -272,7 +280,7 @@ class TestRunPromote:
     ):
         target = tmp_path / "parameters.yaml"
         target.write_text(FILE, encoding="utf-8")
-        _resolves_to(monkeypatch, baseline(**{"run.top_k": "12"}))
+        _resolves_to(monkeypatch, baseline(**{"agent.top_k": "12"}))
 
         assert run_promote("m@champion", out=target, dry_run=True) == 0
         assert target.read_text() == FILE
@@ -294,7 +302,7 @@ class TestRunPromote:
     ):
         target = tmp_path / "parameters.yaml"
         target.write_text(FILE, encoding="utf-8")
-        _resolves_to(monkeypatch, baseline(**{"run.top_k": "30"}))
+        _resolves_to(monkeypatch, baseline(**{"agent.top_k": "30"}))
 
         run_promote("m@champion", out=target, version="v0-baseline")
         assert target.read_text() == FILE

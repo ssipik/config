@@ -407,13 +407,13 @@ def plan(
 
 # --- from a registered baseline ---------------------------------------------
 
-# Section -> the param prefix an evaluation run logs it under. `agent` is logged
-# as `run.` there — the prefix says "what was in force for this run", and
-# renaming it would orphan every registered baseline.
+# Section -> the param prefix an evaluation run logs it under: its own name.
+# A baseline registered while `agent` was logged as `run.` still resolves —
+# `Baseline.section` falls back to the old prefix.
 SECTION_PREFIX = {
     "parse_chunk": "parse_chunk.",
     "embed": "embed.",
-    "agent": "run.",
+    "agent": "agent.",
 }
 
 

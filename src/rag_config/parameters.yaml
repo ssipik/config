@@ -47,6 +47,8 @@ agent:
   rrf_sparse_weight: 0.3333333333333333   # rerun: none
   truncate_chunks: false          # rerun: none
   max_excerpt_chars: 1500         # rerun: none
+  fetch_max_chars: 200000         # rerun: none, fetch_document safeguard
+  fetch_max_chunks: 1024          # rerun: none, fetch_document safeguard
   llm_model: anthropic/claude-haiku-4.5   # rerun: none
   llm_temperature: 0.1            # rerun: none
   llm_max_tokens: 2048            # rerun: none
