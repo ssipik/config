@@ -42,9 +42,9 @@ sources:
   local_pdfs:
     type: local_files
     source_system: local_files
-    path: ../data             # scanned relative to the process CWD (a stage dir)
+    path: /mnt/zdrive/RAG-Data/ETFs
     glob: "**/*.pdf"
-    default_language: de
+    default_language: en
     detect_deletions: true    # full directory scan = complete snapshot, so absence is a real deletion
 
   confluence_quant:
