@@ -31,3 +31,15 @@ batch_max_docs: 200             # rerun: stage 3
 default_doc_cost: 150000        # rerun: stage 3
 default_cost_weight: 1.0        # rerun: stage 3
 max_parse_error_rate: 0.2       # rerun: stage 6
+
+# The agent's live knowledge sources (MCP servers). Empty list = corpus only.
+# Per deployment, RAG_MCP_<NAME>_URL overrides url (e.g. RAG_MCP_BITBUCKET_URL).
+mcp_servers:                    # rerun: agent redeploy
+  - name: bitbucket
+    url: http://localhost:3000/mcp
+    description: >-
+      Bitbucket workspace get-capital: source code, commits, branches and pull
+      requests of the internal systems, including this RAG pipeline
+      (repositories discover, delta, plan, parse_chunk, embed, finalize, agent,
+      config).
+    allowed_tools: [bb_get]     # read-only: never the bb_post/put/patch/delete tools

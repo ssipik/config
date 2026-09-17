@@ -6,6 +6,7 @@ import pytest
 
 from rag_config import (
     EmbedParams,
+    McpServer,
     Params,
     Settings,
     load_params,
@@ -224,3 +225,33 @@ def test_a_settings_key_in_parameters_yaml_is_loud(tmp_path, monkeypatch):
     monkeypatch.setenv("RAG_PARAMETERS_PATH", str(written))
     with pytest.raises(ValueError, match="unknown section"):
         load_params()
+
+
+def test_mcp_servers_load_as_dataclasses(tmp_path, monkeypatch):
+    written = tmp_path / "s.yaml"
+    written.write_text(
+        "mcp_servers:\n"
+        "  - name: nomad\n"
+        "    url: http://nomad-mcp/mcp\n"
+        "    allowed_tools: [list_jobs, get_job]\n"
+    )
+    monkeypatch.setenv("RAG_SETTINGS_PATH", str(written))
+    (server,) = load_settings().mcp_servers
+    assert server == McpServer(
+        name="nomad", url="http://nomad-mcp/mcp", allowed_tools=("list_jobs", "get_job")
+    )
+
+
+def test_an_empty_mcp_server_list_means_corpus_only(tmp_path, monkeypatch):
+    written = tmp_path / "s.yaml"
+    written.write_text("mcp_servers: []\n")
+    monkeypatch.setenv("RAG_SETTINGS_PATH", str(written))
+    assert load_settings().mcp_servers == ()
+
+
+def test_an_unknown_mcp_server_key_is_loud(tmp_path, monkeypatch):
+    written = tmp_path / "s.yaml"
+    written.write_text("mcp_servers:\n  - name: x\n    url: http://x\n    alowed_tools: []\n")
+    monkeypatch.setenv("RAG_SETTINGS_PATH", str(written))
+    with pytest.raises(ValueError, match="unknown parameter"):
+        load_settings()

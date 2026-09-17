@@ -215,6 +215,29 @@ class Params:
 
 
 @dataclass(frozen=True)
+class McpServer:
+    """One MCP server the agent reads live data from (ARCHITECTURE.md block 8).
+
+    - `description` is prepended to every tool description of this server: the
+      model sees tools, never this file, so it is the only place it learns what
+      the server knows about.
+    - `allowed_tools` is an allow-list, not a deny-list: a server upgrade that
+      adds a write tool must not reach the agent unreviewed.
+    - `max_result_chars` caps one tool result; an unfiltered API listing can run
+      to megabytes.
+    """
+
+    name: str
+    url: str
+    description: str = ""
+    allowed_tools: tuple[str, ...] = ()
+    max_result_chars: int = 20_000
+
+    def __post_init__(self):
+        object.__setattr__(self, "allowed_tools", tuple(self.allowed_tools))
+
+
+@dataclass(frozen=True)
 class Settings:
     """Config shared across stages: services, batching, thresholds.
 
@@ -282,6 +305,32 @@ class Settings:
     # Stage 6's gate: above this share of failed documents the run is not
     # finalized.
     max_parse_error_rate: float = 0.2
+
+    # The agent's live knowledge sources. Empty = corpus only. The agent reads
+    # RAG_MCP_<NAME>_URL over `url`, so a deployment moves a server without
+    # editing this list.
+    mcp_servers: tuple[McpServer, ...] = (
+        McpServer(
+            name="bitbucket",
+            url="http://localhost:3000/mcp",
+            description=(
+                "Bitbucket workspace get-capital: source code, commits, branches "
+                "and pull requests of the internal systems, including this RAG "
+                "pipeline (repositories discover, delta, plan, parse_chunk, "
+                "embed, finalize, agent, config)."
+            ),
+            allowed_tools=("bb_get",),
+        ),
+    )
+
+    def __post_init__(self):
+        # yaml gives a list of mappings; checked like any other section, so a
+        # misspelt key fails loudly instead of being dropped.
+        servers = tuple(
+            s if isinstance(s, McpServer) else _build(McpServer, s, "mcp_servers")
+            for s in self.mcp_servers or ()
+        )
+        object.__setattr__(self, "mcp_servers", servers)
 
 
 # --- loading ---------------------------------------------------------------
