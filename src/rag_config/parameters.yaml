@@ -18,7 +18,7 @@
 # committed and packaged. Nor is user_agent, which identifies a component
 # rather than being shared.
 
-version: v0-baseline
+version: rag-retrieval-params/12
 
 parse_chunk:
   chunk_size: 700                 # rerun: stages 4-5, words not tokens
@@ -32,19 +32,19 @@ embed:
   # These names are fastembed's own (SparseTextEmbedding validates them), unlike
   # dense_model and agent.rerank_model, which only record what a container serves.
   sparse_models:                  # rerun: stages 4-5 + agent redeploy
-    german: Qdrant/bm25
     english: Qdrant/bm25
+    german: Qdrant/bm25
   sparse_avg_len: 256.0           # rerun: stages 4-5 + agent redeploy
 
 agent:
-  prefetch_limit: 30              # rerun: none
-  top_k: 30                       # rerun: none
+  prefetch_limit: 75              # rerun: none
+  top_k: 8                        # rerun: none
   rerank_top_n: 5                 # rerun: none
   rerank_enabled: false           # rerun: none
   rerank_model: BAAI/bge-reranker-v2-m3   # rerun: none, agent redeploy
-  rrf_k: 2                        # rerun: none
+  rrf_k: 18                       # rerun: none
   rrf_dense_weight: 1.0           # rerun: none
-  rrf_sparse_weight: 0.3333333333333333   # rerun: none
+  rrf_sparse_weight: 0.12424508425704862  # rerun: none
   truncate_chunks: false          # rerun: none
   max_excerpt_chars: 1500         # rerun: none
   fetch_max_chars: 200000         # rerun: none, fetch_document safeguard

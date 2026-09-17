@@ -16,7 +16,7 @@
             "console": "integratedTerminal",
             "args": [
                 "promote",
-                "--mlflow-model", "rag-retrieval-params@optimal_rrf_sparse_weight",
+                "--mlflow-model", "rag-retrieval-params@production",
                 "--dry-run",
                 // --out defaults to the checked-out parameters.yaml
                 // "--set-version", "v1-tuned",
