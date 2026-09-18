@@ -214,6 +214,19 @@ class Params:
 # --- config variables ------------------------------------------------------
 
 
+# Every Nomad MCP tool that only reads. Not here: the writes (run/stop/scale,
+# drain, create/delete), Nomad Variables and anything ACL or Sentinel — those
+# can print secrets. The server's own read-only token enforces the same line.
+NOMAD_READ_TOOLS = (
+    "list_jobs", "get_job", "get_job_summary", "get_job_allocations",
+    "get_job_deployments", "get_job_evaluations", "get_job_services",
+    "list_allocations", "get_allocation", "get_allocation_logs",
+    "list_deployments", "get_deployment", "list_nodes", "get_node",
+    "list_namespaces", "list_volumes", "get_volume",
+    "get_cluster_leader", "list_cluster_peers", "list_regions",
+)
+
+
 @dataclass(frozen=True)
 class McpServer:
     """One MCP server the agent reads live data from (ARCHITECTURE.md block 8).
@@ -225,6 +238,8 @@ class McpServer:
       adds a write tool must not reach the agent unreviewed.
     - `max_result_chars` caps one tool result; an unfiltered API listing can run
       to megabytes.
+    - `web_url` is where a person opens what the server reads (links in the
+      source list); empty = entries carry no link.
     """
 
     name: str
@@ -232,6 +247,7 @@ class McpServer:
     description: str = ""
     allowed_tools: tuple[str, ...] = ()
     max_result_chars: int = 20_000
+    web_url: str = ""
 
     def __post_init__(self):
         object.__setattr__(self, "allowed_tools", tuple(self.allowed_tools))
@@ -320,6 +336,19 @@ class Settings:
                 "embed, finalize, agent, config)."
             ),
             allowed_tools=("bb_get",),
+            web_url="https://bitbucket.org",
+        ),
+        McpServer(
+            name="nomad",
+            url="http://localhost:8080/mcp",
+            description=(
+                "Nomad cluster: the live state of jobs, allocations, deployments, "
+                "services and nodes, and the logs of running tasks — including this "
+                "RAG pipeline's own services (rag-agent, qdrant, rag-postgres, "
+                "tei-embed, tei-rerank, bitbucket-mcp, nomad-mcp)."
+            ),
+            allowed_tools=NOMAD_READ_TOOLS,
+            web_url="https://nomad-ui.service.get",
         ),
     )
 
