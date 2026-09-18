@@ -60,4 +60,15 @@ sources:
     detect_deletions: true    # space+label listing is a complete snapshot, so a
                               # page that is deleted or unlabelled is really gone
 
+  confluence_internal:
+    type: confluence
+    source_system: confluence
+    base_url: https://get-capital.atlassian.net
+    space_key: IN
+    label: RAG
+    include_attachments: false
+    doc_type: wiki_page
+    default_language: en
+    detect_deletions: true
+
 # for testing
