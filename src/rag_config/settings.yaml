@@ -51,12 +51,12 @@ mcp_servers:                    # rerun: agent redeploy
       and nodes, and the logs of running tasks — including this RAG pipeline's
       own services (rag-agent, qdrant, rag-postgres, tei-embed, tei-rerank,
       bitbucket-mcp, nomad-mcp).
-    # reads only — no run/stop/scale/drain/create/delete, no variables, ACL or
-    # Sentinel (those print secrets); the server's read-only token enforces the same
-    allowed_tools: [list_jobs, get_job, get_job_summary, get_job_allocations,
+    # reads that work on this cluster (reasons in params.py NOMAD_READ_TOOLS):
+    # no writes, variables, ACL or Sentinel; no list_jobs (7,000+ jobs time
+    # out), get_node (server bug) or raft peers/leader
+    allowed_tools: [get_job, get_job_summary, get_job_allocations,
                     get_job_deployments, get_job_evaluations, get_job_services,
                     list_allocations, get_allocation, get_allocation_logs,
-                    list_deployments, get_deployment, list_nodes, get_node,
-                    list_namespaces, list_volumes, get_volume,
-                    get_cluster_leader, list_cluster_peers, list_regions]
+                    list_deployments, get_deployment, list_nodes,
+                    list_namespaces, list_volumes, get_volume, list_regions]
     web_url: https://nomad-ui.service.get

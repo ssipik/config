@@ -214,16 +214,21 @@ class Params:
 # --- config variables ------------------------------------------------------
 
 
-# Every Nomad MCP tool that only reads. Not here: the writes (run/stop/scale,
-# drain, create/delete), Nomad Variables and anything ACL or Sentinel — those
-# can print secrets. The server's own read-only token enforces the same line.
+# The Nomad MCP tools the agent gets: reads that work on this cluster. Not here:
+# - the writes (run/stop/scale, drain, create/delete), Nomad Variables and
+#   anything ACL or Sentinel — those can print secrets; the server's read-only
+#   token enforces the same line
+# - list_jobs: one detail request per job, and 7,463 jobs (dispatched children)
+#   hit traefik's timeout even filtered to running (measured 2026-09-18)
+# - get_node: the server cannot parse this Nomad version's node JSON
+# - get_cluster_leader, list_cluster_peers: raft internals, not worth widening
+#   the token for
 NOMAD_READ_TOOLS = (
-    "list_jobs", "get_job", "get_job_summary", "get_job_allocations",
+    "get_job", "get_job_summary", "get_job_allocations",
     "get_job_deployments", "get_job_evaluations", "get_job_services",
     "list_allocations", "get_allocation", "get_allocation_logs",
-    "list_deployments", "get_deployment", "list_nodes", "get_node",
-    "list_namespaces", "list_volumes", "get_volume",
-    "get_cluster_leader", "list_cluster_peers", "list_regions",
+    "list_deployments", "get_deployment", "list_nodes",
+    "list_namespaces", "list_volumes", "get_volume", "list_regions",
 )
 
 
