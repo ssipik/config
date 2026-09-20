@@ -42,7 +42,8 @@ sources:
   local_pdfs:
     type: local_files
     source_system: local_files
-    path: /mnt/zdrive/RAG-Data/ETFs
+    # path: /mnt/zdrive/RAG-Data/ETFs
+    path: /home/sipik/Claude/rag-pipeline/data
     glob: "**/*.pdf"
     default_language: en
     detect_deletions: true    # full directory scan = complete snapshot, so absence is a real deletion
