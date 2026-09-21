@@ -288,8 +288,12 @@ class Settings:
 
     # What stages 5, 6 and the agent must agree on.
     qdrant_collection: str = "rag_chunks"
-    # Chunks per TEI request: throughput only, same vectors either way.
-    embed_batch_size: int = 32
+    # Chunks per TEI request: throughput only, same vectors either way. Measured
+    # 2026-09-21 against tei-embed with 700-word chunks: 1.4 s per text at 8 and
+    # at 16 texts per request, over 3 s per text at 32. Requests queued behind a
+    # 32 then passed tei_timeout, and embed does not retry timeouts. 8 costs the
+    # same total time as 16 and halves the worst-case wait.
+    embed_batch_size: int = 8
     # The reranker's equivalent. TEI refuses a client batch above its own
     # --max-client-batch-size with a 422, so without chunking any top_k over 32
     # fails the request outright instead of being slower. Safe to split: a

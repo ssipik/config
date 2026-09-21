@@ -18,7 +18,7 @@ http_timeout: 30.0              # rerun: none
 tei_timeout: 300.0              # rerun: none
 rerank_timeout: 600.0           # rerun: none
 qdrant_collection: rag_chunks   # rerun: stages 4-5 + agent redeploy
-embed_batch_size: 32            # rerun: none, throughput only
+embed_batch_size: 8             # rerun: none, throughput only
 rerank_batch_size: 32           # rerun: none, TEI's max-client-batch-size
 
 # name ids of vectors in Qdrant
