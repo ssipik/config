@@ -193,7 +193,7 @@ class AgentParams:
     # far beyond any real document; it exists so a pathological one cannot pull
     # an unbounded scroll.
     fetch_max_chunks: int = 1024
-    llm_model: str = "anthropic/claude-haiku-4.5"
+    llm_model: str = "claude-haiku-4-5"
     llm_temperature: float = 0.1  # regulatory answers: follow the sources, don't improvise
     llm_max_tokens: int = 2048
 
