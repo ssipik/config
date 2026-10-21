@@ -16,8 +16,8 @@
             "console": "integratedTerminal",
             "args": [
                 "promote",
-                "--mlflow-model", "rag-retrieval-params@production",
-                "--dry-run",
+                "--mlflow-model", "rag-agent-model@production",
+                // "--dry-run",
                 // --out defaults to the checked-out parameters.yaml
                 // "--set-version", "v1-tuned",
             ],
